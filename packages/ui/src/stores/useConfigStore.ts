@@ -233,6 +233,38 @@ const buildModelMetadataKey = (providerId: string, modelId: string) => {
     return `${normalizedProvider}/${modelId}`;
 };
 
+const mapModalities = (capabilities: { text: boolean; audio: boolean; image: boolean; video: boolean; pdf: boolean }): string[] => {
+    const result: string[] = [];
+    if (capabilities.text) result.push('text');
+    if (capabilities.audio) result.push('audio');
+    if (capabilities.image) result.push('image');
+    if (capabilities.video) result.push('video');
+    if (capabilities.pdf) result.push('pdf');
+    return result;
+};
+
+const deriveModelMetadata = (providerId: string, model: ProviderModel): ModelMetadata => ({
+    id: model.id,
+    providerId,
+    name: model.name,
+    tool_call: model.capabilities.toolcall,
+    reasoning: model.capabilities.reasoning,
+    temperature: model.capabilities.temperature,
+    attachment: model.capabilities.attachment,
+    modalities: {
+        input: mapModalities(model.capabilities.input),
+        output: mapModalities(model.capabilities.output),
+    },
+    cost: {
+        input: model.cost.input,
+        output: model.cost.output,
+        cache_read: model.cost.cache.read,
+        cache_write: model.cost.cache.write,
+    },
+    limit: model.limit,
+    release_date: model.release_date,
+});
+
 const transformModelsDevResponse = (payload: unknown): Map<string, ModelMetadata> => {
     const metadataMap = new Map<string, ModelMetadata>();
 
@@ -1744,8 +1776,17 @@ export const useConfigStore = create<ConfigStore>()(
                     if (!key) {
                         return undefined;
                     }
-                    const { modelsMetadata } = get();
-                    return modelsMetadata.get(key);
+                    const { modelsMetadata, providers } = get();
+                    const cached = modelsMetadata.get(key);
+                    if (cached) {
+                        return cached;
+                    }
+                    const provider = providers.find((p) => p.id === providerId);
+                    const model = provider?.models.find((m) => m.id === modelId);
+                    if (!model) {
+                        return undefined;
+                    }
+                    return deriveModelMetadata(providerId, model);
                 },
                 getVisibleAgents: () => {
                     const { agents } = get();
