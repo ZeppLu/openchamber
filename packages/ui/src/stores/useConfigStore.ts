@@ -1792,7 +1792,9 @@ export const useConfigStore = create<ConfigStore>()(
                         return undefined;
                     }
 
-                    return deriveModelMetadata(providerId, model);
+                    const derived = deriveModelMetadata(providerId, model);
+                    set({ modelsMetadata: new Map(modelsMetadata).set(key, derived) });
+                    return derived;
                 },
                 getVisibleAgents: () => {
                     const { agents } = get();
